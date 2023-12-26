@@ -4,7 +4,6 @@ import {
 import path from 'path';
 import yaml from 'js-yaml';
 import { existsSync } from 'fs';
-import { deserialize } from 'v8';
 
 const splitLesson = async (lesson) => {
   const { lessonPath, locales } = lesson;
@@ -16,12 +15,11 @@ const splitLesson = async (lesson) => {
       const { theory, instructions, ...exerciseData } = yaml.load(data);
 
       if (!existsSync(localePath)) {
-        await mkdir(localePath)
+        await mkdir(localePath);
       }
       await writeFile(path.join(localePath, 'README.md'), theory);
       await writeFile(path.join(localePath, 'EXERCISE.md'), instructions);
       await writeFile(path.join(localePath, 'data.yml'), yaml.dump(exerciseData));
-
     } catch (err) {
       console.log('Ошибка при обработке урока: ', path.join(lessonPath, locale), err);
     }
