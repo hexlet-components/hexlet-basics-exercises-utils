@@ -6,7 +6,6 @@ import yaml from 'js-yaml';
 
 const splitLesson = async (lesson) => {
   const { name, path: lessonPath } = lesson;
-
   try {
     const data = await readFile(path.join(lessonPath, name), 'utf-8');
     const { theory, instructions, ...exerciseData } = yaml.load(data);
@@ -72,7 +71,8 @@ const splitCourse = (modulesDirPath) => {
       }
       descriptions.forEach((item, i) => {
         splitLesson(item);
-        removeDescriptionFile(item);
+        // NOTE: пока рано убирать файлы, тк поддерживается еще старая структура.
+        // removeDescriptionFile(item);
         const counter = lessonsCount - 1 - i;
         console.log(`осталось обработать: ${counter}`);
       });
