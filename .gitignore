@@ -1,1 +1,4 @@
 node_modules
+__fixtures__/**/es
+__fixtures__/**/ru
+__fixtures__/**/en

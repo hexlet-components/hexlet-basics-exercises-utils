@@ -1,21 +1,31 @@
 import {
-  readFile, writeFile, unlink, readdir,
+  readFile, writeFile, unlink, readdir, mkdir
 } from 'fs/promises';
 import path from 'path';
 import yaml from 'js-yaml';
+import { existsSync } from 'fs';
+import { deserialize } from 'v8';
 
 const splitLesson = async (lesson) => {
-  const { name, path: lessonPath } = lesson;
-  try {
-    const data = await readFile(path.join(lessonPath, name), 'utf-8');
-    const { theory, instructions, ...exerciseData } = yaml.load(data);
+  const { lessonPath, locales } = lesson;
 
-    await writeFile(path.join(lessonPath, 'README.md'), theory);
-    await writeFile(path.join(lessonPath, 'EXERCISE.md'), instructions);
-    await writeFile(path.join(lessonPath, 'data.yml'), yaml.dump(exerciseData));
-  } catch (err) {
-    console.log('Ошибка при обработке урока: ', path.join(lessonPath, name), err);
-  }
+  locales.forEach(async (locale) => {
+    try {
+      const localePath = path.join((lessonPath), locale);
+      const data = await readFile(path.join(lessonPath, `description.${locale}.yml`), 'utf-8');
+      const { theory, instructions, ...exerciseData } = yaml.load(data);
+
+      if (!existsSync(localePath)) {
+        await mkdir(localePath)
+      }
+      await writeFile(path.join(localePath, 'README.md'), theory);
+      await writeFile(path.join(localePath, 'EXERCISE.md'), instructions);
+      await writeFile(path.join(localePath, 'data.yml'), yaml.dump(exerciseData));
+
+    } catch (err) {
+      console.log('Ошибка при обработке урока: ', path.join(lessonPath, locale), err);
+    }
+  });
 };
 
 const removeDescriptionFile = async (lesson) => {
@@ -45,12 +55,21 @@ const getLessons = (modulesDirPath) => readdir(modulesDirPath, { withFileTypes: 
 
 const getDescriptions = (lessons) => {
   const descriptionPromises = lessons.map(
-    (lesson) => readdir(lesson, { withFileTypes: true })
-      .then(
-        (contents) => contents
-          .filter((item) => item.isFile() && item.name === 'description.ru.yml'),
-      )
-      .catch((err) => console.error('Ошибка при получении описания урока:', err, lesson)),
+    (lessonPath) => readdir(lessonPath, { withFileTypes: true })
+      .then( (lessonDir) => {
+        const regexp = new RegExp(/description\.(?<locale>.+).yml/);
+        const descriptions = lessonDir
+          .filter((item) => item.isFile() && regexp.test(item.name))
+
+        const locales = descriptions
+          .map(({ name }) => name.match(regexp).groups.locale);
+
+        return {
+          lessonPath,
+          locales,
+        };
+      })
+      .catch((err) => console.error('Ошибка при получении описания урока:', err, lessonPath)),
   );
 
   return Promise.all(descriptionPromises)
@@ -62,7 +81,9 @@ const splitCourse = (modulesDirPath) => {
   getLessons(modulesDirPath)
     .then((lessons) => {
       lessonsCount = lessons.length;
-      return getDescriptions(lessons);
+      const descriptions = getDescriptions(lessons);
+
+      return descriptions;
     })
     .then((descriptions) => {
       console.log(`Всего уроков: ${lessonsCount}`);
